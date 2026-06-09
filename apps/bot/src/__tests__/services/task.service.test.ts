@@ -1,0 +1,290 @@
+import { TaskService } from 'src/database/services/task.service';
+import { Task } from 'src/database/models/task.model';
+import { groupService } from 'src/database/services/group.service';
+import mongoose from 'mongoose';
+
+// Mock dependencies
+jest.mock('src/database/models/task.model');
+jest.mock('src/database/services/group.service');
+jest.mock('src/shared/logger/logger', () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+}));
+
+const mockObjectId = new mongoose.Types.ObjectId();
+const mockGroupId = new mongoose.Types.ObjectId();
+const mockUserId = new mongoose.Types.ObjectId();
+
+const mockTask = {
+  _id: mockObjectId,
+  groupId: mockGroupId,
+  title: 'Test task',
+  description: 'A test description',
+  status: 'todo',
+  priority: 'medium',
+  taskNumber: 1,
+  createdBy: mockUserId,
+  assigneeId: null,
+  dueDate: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+describe('TaskService', () => {
+  let service: TaskService;
+
+  beforeEach(() => {
+    service = new TaskService();
+    jest.clearAllMocks();
+  });
+
+  describe('createTask', () => {
+    it('should create a task with auto-incremented task number', async () => {
+      (groupService.incrementTaskCounter as jest.Mock).mockResolvedValue(42);
+      (Task.create as jest.Mock).mockResolvedValue({ ...mockTask, taskNumber: 42 });
+
+      const result = await service.createTask({
+        groupId: mockGroupId,
+        title: 'New task',
+        createdBy: mockUserId,
+      });
+
+      expect(groupService.incrementTaskCounter).toHaveBeenCalledWith(mockGroupId);
+      expect(Task.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          groupId: mockGroupId,
+          title: 'New task',
+          createdBy: mockUserId,
+          taskNumber: 42,
+          status: 'todo',
+          priority: 'medium',
+        })
+      );
+      expect(result.taskNumber).toBe(42);
+    });
+
+    it('should use provided priority instead of default', async () => {
+      (groupService.incrementTaskCounter as jest.Mock).mockResolvedValue(1);
+      (Task.create as jest.Mock).mockResolvedValue({ ...mockTask, priority: 'high' });
+
+      await service.createTask({
+        groupId: mockGroupId,
+        title: 'Urgent task',
+        createdBy: mockUserId,
+        priority: 'high',
+      });
+
+      expect(Task.create).toHaveBeenCalledWith(
+        expect.objectContaining({ priority: 'high' })
+      );
+    });
+
+    it('should pass sourceMessage when creating from a reply', async () => {
+      (groupService.incrementTaskCounter as jest.Mock).mockResolvedValue(1);
+      (Task.create as jest.Mock).mockResolvedValue(mockTask);
+
+      const sourceMessage = {
+        messageId: 100,
+        chatId: -1001234,
+        text: 'Original message',
+        fromUserId: 999,
+        link: 'https://t.me/c/1234/100',
+      };
+
+      await service.createTask({
+        groupId: mockGroupId,
+        title: 'From reply',
+        createdBy: mockUserId,
+        sourceMessage,
+      });
+
+      expect(Task.create).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceMessage })
+      );
+    });
+  });
+
+  describe('getTaskById', () => {
+    it('should return task with populated fields', async () => {
+      const mockPopulate = jest.fn().mockResolvedValue(mockTask);
+      (Task.findById as jest.Mock).mockReturnValue({ populate: mockPopulate });
+
+      const result = await service.getTaskById(mockObjectId.toString());
+
+      expect(Task.findById).toHaveBeenCalledWith(mockObjectId.toString());
+      expect(mockPopulate).toHaveBeenCalledWith('createdBy assigneeId');
+      expect(result).toEqual(mockTask);
+    });
+
+    it('should return null on error', async () => {
+      (Task.findById as jest.Mock).mockReturnValue({
+        populate: jest.fn().mockRejectedValue(new Error('DB error')),
+      });
+
+      const result = await service.getTaskById('invalid');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getTasksByGroup', () => {
+    it('should return tasks with pagination', async () => {
+      const mockSort = jest.fn().mockReturnThis();
+      const mockSkip = jest.fn().mockReturnThis();
+      const mockLimit = jest.fn().mockResolvedValue([mockTask]);
+      const mockPopulate = jest.fn().mockReturnValue({ sort: mockSort, skip: mockSkip, limit: mockLimit });
+
+      (Task.find as jest.Mock).mockReturnValue({ populate: mockPopulate });
+      (Task.countDocuments as jest.Mock).mockResolvedValue(1);
+
+      const result = await service.getTasksByGroup(mockGroupId, { page: 1, limit: 10 });
+
+      expect(result.tasks).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(mockSkip).toHaveBeenCalledWith(0);
+      expect(mockLimit).toHaveBeenCalledWith(10);
+    });
+
+    it('should apply status filter', async () => {
+      const mockSort = jest.fn().mockReturnThis();
+      const mockSkip = jest.fn().mockReturnThis();
+      const mockLimit = jest.fn().mockResolvedValue([]);
+      const mockPopulate = jest.fn().mockReturnValue({ sort: mockSort, skip: mockSkip, limit: mockLimit });
+
+      (Task.find as jest.Mock).mockReturnValue({ populate: mockPopulate });
+      (Task.countDocuments as jest.Mock).mockResolvedValue(0);
+
+      await service.getTasksByGroup(mockGroupId, { status: 'done' });
+
+      expect(Task.find).toHaveBeenCalledWith(
+        expect.objectContaining({ groupId: mockGroupId, status: 'done' })
+      );
+    });
+
+    it('should apply search filter with regex', async () => {
+      const mockSort = jest.fn().mockReturnThis();
+      const mockSkip = jest.fn().mockReturnThis();
+      const mockLimit = jest.fn().mockResolvedValue([]);
+      const mockPopulate = jest.fn().mockReturnValue({ sort: mockSort, skip: mockSkip, limit: mockLimit });
+
+      (Task.find as jest.Mock).mockReturnValue({ populate: mockPopulate });
+      (Task.countDocuments as jest.Mock).mockResolvedValue(0);
+
+      await service.getTasksByGroup(mockGroupId, { search: 'deploy' });
+
+      expect(Task.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: { $regex: 'deploy', $options: 'i' },
+        })
+      );
+    });
+  });
+
+  describe('updateTaskStatus', () => {
+    it('should set completedAt when status is done', async () => {
+      const mockPopulate = jest.fn().mockResolvedValue({ ...mockTask, status: 'done' });
+      (Task.findByIdAndUpdate as jest.Mock).mockReturnValue({ populate: mockPopulate });
+
+      await service.updateTaskStatus(mockObjectId.toString(), 'done');
+
+      expect(Task.findByIdAndUpdate).toHaveBeenCalledWith(
+        mockObjectId.toString(),
+        { $set: expect.objectContaining({ status: 'done', completedAt: expect.any(Date) }) },
+        { new: true, runValidators: true }
+      );
+    });
+
+    it('should clear completedAt when status is not done', async () => {
+      const mockPopulate = jest.fn().mockResolvedValue({ ...mockTask, status: 'in_progress' });
+      (Task.findByIdAndUpdate as jest.Mock).mockReturnValue({ populate: mockPopulate });
+
+      await service.updateTaskStatus(mockObjectId.toString(), 'in_progress');
+
+      expect(Task.findByIdAndUpdate).toHaveBeenCalledWith(
+        mockObjectId.toString(),
+        { $set: expect.objectContaining({ status: 'in_progress', completedAt: null }) },
+        { new: true, runValidators: true }
+      );
+    });
+  });
+
+  describe('deleteTask', () => {
+    it('should return true when task is deleted', async () => {
+      (Task.findByIdAndDelete as jest.Mock).mockResolvedValue(mockTask);
+
+      const result = await service.deleteTask(mockObjectId.toString());
+      expect(result).toBe(true);
+    });
+
+    it('should return false when task not found', async () => {
+      (Task.findByIdAndDelete as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.deleteTask(mockObjectId.toString());
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getTaskStats', () => {
+    it('should return aggregated stats by status', async () => {
+      (Task.aggregate as jest.Mock).mockResolvedValue([
+        { _id: 'todo', count: 5 },
+        { _id: 'in_progress', count: 3 },
+        { _id: 'done', count: 10 },
+      ]);
+
+      const result = await service.getTaskStats(mockGroupId);
+
+      expect(result).toEqual({ todo: 5, in_progress: 3, done: 10 });
+    });
+
+    it('should return zeros when no tasks', async () => {
+      (Task.aggregate as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getTaskStats(mockGroupId);
+
+      expect(result).toEqual({ todo: 0, in_progress: 0, done: 0 });
+    });
+  });
+
+  describe('getTaskByNumber', () => {
+    it('should find task by group and number', async () => {
+      const mockPopulate = jest.fn().mockResolvedValue(mockTask);
+      (Task.findOne as jest.Mock).mockReturnValue({ populate: mockPopulate });
+
+      const result = await service.getTaskByNumber(mockGroupId, 1);
+
+      expect(Task.findOne).toHaveBeenCalledWith({ groupId: mockGroupId, taskNumber: 1 });
+      expect(result).toEqual(mockTask);
+    });
+  });
+
+  describe('assignTask', () => {
+    it('should update assigneeId', async () => {
+      const newAssignee = new mongoose.Types.ObjectId();
+      const mockPopulate = jest.fn().mockResolvedValue({ ...mockTask, assigneeId: newAssignee });
+      (Task.findByIdAndUpdate as jest.Mock).mockReturnValue({ populate: mockPopulate });
+
+      const result = await service.assignTask(mockObjectId, newAssignee);
+
+      expect(Task.findByIdAndUpdate).toHaveBeenCalledWith(
+        mockObjectId,
+        { $set: { assigneeId: newAssignee } },
+        { new: true, runValidators: true }
+      );
+      expect(result?.assigneeId).toBe(newAssignee);
+    });
+
+    it('should unassign by setting null', async () => {
+      const mockPopulate = jest.fn().mockResolvedValue({ ...mockTask, assigneeId: null });
+      (Task.findByIdAndUpdate as jest.Mock).mockReturnValue({ populate: mockPopulate });
+
+      await service.assignTask(mockObjectId, null);
+
+      expect(Task.findByIdAndUpdate).toHaveBeenCalledWith(
+        mockObjectId,
+        { $set: { assigneeId: null } },
+        { new: true, runValidators: true }
+      );
+    });
+  });
+});
