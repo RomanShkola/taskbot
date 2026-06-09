@@ -1,6 +1,7 @@
 {
   "name": "tbot",
   "private": true,
+  "description": "Telegram-native task manager: turn group messages into trackable tasks via bot commands and a Mini App board.",
   "packageManager": "pnpm@10.16.1",
   "scripts": {
     "dev": "turbo dev",
