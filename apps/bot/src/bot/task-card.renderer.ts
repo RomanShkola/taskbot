@@ -12,9 +12,9 @@ const STATUS_EMOJI: Record<string, string> = {
 };
 
 const PRIORITY_EMOJI: Record<string, string> = {
-  low: '⬇️',
-  medium: '➡️',
-  high: '⬆️',
+  low: '⚪',
+  medium: '🟡',
+  high: '🟠',
   urgent: '🔴',
 };
 
@@ -38,26 +38,30 @@ export function formatTaskCard(task: ITask, creatorUser?: IUser | null, assignee
 
   let card = `📋 *#${task.taskNumber}* ${escapeMarkdown(task.title)}\n`;
   card += `━━━━━━━━━━━━━━━━━━━\n`;
-  card += `Status: ${statusLabel}\n`;
-  card += `Priority: ${priorityLabel}\n`;
+  card += `Статус: ${statusLabel}\n`;
+  card += `Приоритет: ${priorityLabel}\n`;
 
   if (assigneeUser) {
-    const name = assigneeUser.username ? `@${assigneeUser.username}` : assigneeUser.firstName || 'Unknown';
-    card += `Assignee: ${name}\n`;
+    const name = assigneeUser.username ? `@${assigneeUser.username}` : assigneeUser.firstName || 'Неизвестно';
+    card += `Исполнитель: ${name}\n`;
   }
 
   if (task.dueDate) {
     const due = new Date(task.dueDate);
-    card += `Due: ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}\n`;
+    card += `Срок: ${due.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}\n`;
   }
 
   if (creatorUser) {
-    const creatorName = creatorUser.username ? `@${creatorUser.username}` : creatorUser.firstName || 'Unknown';
-    card += `Created by: ${creatorName}\n`;
+    const creatorName = creatorUser.username ? `@${creatorUser.username}` : creatorUser.firstName || 'Неизвестно';
+    card += `Создал: ${creatorName}\n`;
+  }
+
+  if (task.attachments && task.attachments.length > 0) {
+    card += `Вложения: ${task.attachments.length}\n`;
   }
 
   if (task.sourceMessage?.link) {
-    card += `\n💬 [Source message](${task.sourceMessage.link})`;
+    card += `\n💬 [Исходное сообщение](${task.sourceMessage.link})`;
   }
 
   return card;
@@ -72,21 +76,21 @@ export async function buildTaskButtons(task: ITask, userId?: string): Promise<In
 
   if (task.status === 'todo') {
     const cbData = await storeTaskCallbackData(taskId, 'status_start');
-    row1.push({ text: '▶ Start', callback_data: cbData });
+    row1.push({ text: '▶ В работу', callback_data: cbData });
   }
 
   if (task.status === 'todo' || task.status === 'in_progress') {
     const cbData = await storeTaskCallbackData(taskId, 'status_done');
-    row1.push({ text: '✅ Done', callback_data: cbData });
+    row1.push({ text: '✅ Готово', callback_data: cbData });
   }
 
   if (task.status === 'done') {
     const cbData = await storeTaskCallbackData(taskId, 'status_reopen');
-    row1.push({ text: '🔄 Reopen', callback_data: cbData });
+    row1.push({ text: '🔄 Вернуть', callback_data: cbData });
   }
 
   const priorityCb = await storeTaskCallbackData(taskId, 'priority');
-  row1.push({ text: '🔼 Priority', callback_data: priorityCb });
+  row1.push({ text: '🔼 Приоритет', callback_data: priorityCb });
 
   if (row1.length > 0) rows.push(row1);
 
@@ -94,10 +98,10 @@ export async function buildTaskButtons(task: ITask, userId?: string): Promise<In
   const row2: InlineKeyboardButton[] = [];
 
   const assignCb = await storeTaskCallbackData(taskId, 'assign');
-  row2.push({ text: '👤 Assign', callback_data: assignCb });
+  row2.push({ text: '👤 Назначить', callback_data: assignCb });
 
   const deleteCb = await storeTaskCallbackData(taskId, 'delete');
-  row2.push({ text: '🗑 Delete', callback_data: deleteCb });
+  row2.push({ text: '🗑 Удалить', callback_data: deleteCb });
 
   rows.push(row2);
 
@@ -109,7 +113,7 @@ export async function buildTaskButtons(task: ITask, userId?: string): Promise<In
     const groupId = task.groupId.toString();
     rows.push([
       {
-        text: '📱 Open in App',
+        text: '📱 Открыть в приложении',
         url: `https://t.me/${configService.botUsername}?startapp=${groupId}_${taskId}`,
       },
     ]);

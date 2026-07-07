@@ -34,13 +34,18 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           <span className="flex items-center gap-1">
             👤 {typeof task.assigneeId === 'object' && 'username' in task.assigneeId
               ? `@${(task.assigneeId as any).username}`
-              : 'Assigned'}
+              : 'Назначена'}
           </span>
         )}
         {dueDate && (
           <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 font-medium' : ''}`}>
-            📅 {dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            {isOverdue && ' (overdue)'}
+            📅 {dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+            {isOverdue && ' (просрочена)'}
+          </span>
+        )}
+        {task.attachments && task.attachments.length > 0 && (
+          <span className="flex items-center gap-1">
+            📎 {task.attachments.length}
           </span>
         )}
       </div>

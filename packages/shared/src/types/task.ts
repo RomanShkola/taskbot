@@ -8,6 +8,29 @@ export interface ISourceMessage {
   link: string;
 }
 
+export type TaskAttachmentType =
+  | 'photo'
+  | 'video'
+  | 'animation'
+  | 'document'
+  | 'audio'
+  | 'voice'
+  | 'video_note'
+  | 'sticker';
+
+export interface ITaskAttachment {
+  type: TaskAttachmentType;
+  fileId: string;
+  fileUniqueId?: string;
+  fileName?: string;
+  mimeType?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
+  duration?: number;
+  thumbnailFileId?: string;
+}
+
 export interface ITask {
   _id: string;
   groupId: string;
@@ -20,6 +43,7 @@ export interface ITask {
   dueDate?: string;
   taskNumber: number;
   sourceMessage?: ISourceMessage;
+  attachments?: ITaskAttachment[];
   completedAt?: string;
   reminderSent?: boolean;
   taskCardMessageId?: number;

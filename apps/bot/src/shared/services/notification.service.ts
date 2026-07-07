@@ -31,18 +31,18 @@ export class NotificationService {
 
     try {
       const group = await Group.findById(task.groupId);
-      const groupName = group?.groupName || 'a group';
-      const byName = assignedBy.username ? `@${assignedBy.username}` : assignedBy.firstName || 'Someone';
+      const groupName = group?.groupName || 'группа';
+      const byName = assignedBy.username ? `@${assignedBy.username}` : assignedBy.firstName || 'Кто-то';
 
-      let message = `📋 *You were assigned to #${task.taskNumber}*\n`;
+      let message = `📋 *Вас назначили на #${task.taskNumber}*\n`;
       message += `"${task.title}"\n`;
-      message += `By: ${byName}\n`;
-      message += `Group: ${groupName}`;
+      message += `Назначил(а): ${byName}\n`;
+      message += `Группа: ${groupName}`;
 
       if (configService.webappUrl) {
         const groupId = task.groupId.toString();
         const taskId = task._id.toString();
-        message += `\n\n📱 [Open in App](${configService.webappUrl}?startapp=${groupId}_${taskId})`;
+        message += `\n\n📱 [Открыть в приложении](${configService.webappUrl}?startapp=${groupId}_${taskId})`;
       }
 
       await bot.telegram.sendMessage(assignee.telegramUserId, message, {
@@ -65,15 +65,15 @@ export class NotificationService {
 
     try {
       const group = await Group.findById(task.groupId);
-      const groupName = group?.groupName || 'a group';
-      const byName = changedBy.username ? `@${changedBy.username}` : changedBy.firstName || 'Someone';
+      const groupName = group?.groupName || 'группа';
+      const byName = changedBy.username ? `@${changedBy.username}` : changedBy.firstName || 'Кто-то';
       const statusLabel = TASK_STATUS_LABELS[task.status as TaskStatus] || task.status;
 
-      let message = `🔔 *Task #${task.taskNumber} updated*\n`;
+      let message = `🔔 *Задача #${task.taskNumber} обновлена*\n`;
       message += `"${task.title}"\n`;
-      message += `Status: ${statusLabel}\n`;
-      message += `Changed by: ${byName}\n`;
-      message += `Group: ${groupName}`;
+      message += `Статус: ${statusLabel}\n`;
+      message += `Изменил(а): ${byName}\n`;
+      message += `Группа: ${groupName}`;
 
       await bot.telegram.sendMessage(assignee.telegramUserId, message, {
         parse_mode: 'Markdown',
@@ -91,15 +91,15 @@ export class NotificationService {
   async notifyDueReminder(task: ITask, targetUser: IUser) {
     try {
       const group = await Group.findById(task.groupId);
-      const groupName = group?.groupName || 'a group';
+      const groupName = group?.groupName || 'группа';
       const dueDate = task.dueDate ? new Date(task.dueDate) : null;
       const dueStr = dueDate
-        ? dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        : 'soon';
+        ? dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'скоро';
 
-      let message = `⏰ *Task #${task.taskNumber} is due ${dueStr}*\n`;
+      let message = `⏰ *Срок задачи #${task.taskNumber}: ${dueStr}*\n`;
       message += `"${task.title}"\n`;
-      message += `Group: ${groupName}`;
+      message += `Группа: ${groupName}`;
 
       await bot.telegram.sendMessage(targetUser.telegramUserId, message, {
         parse_mode: 'Markdown',

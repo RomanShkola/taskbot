@@ -34,9 +34,9 @@ export function TasksContent({
 }: TasksContentProps) {
   if (isLoading) {
     return (
-      <Layout title="Tasks">
+      <Layout title="Задачи">
         <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="text-[var(--tg-theme-hint-color)]">Loading tasks...</div>
+          <div className="text-[var(--tg-theme-hint-color)]">Загрузка задач...</div>
         </div>
       </Layout>
     );
@@ -44,7 +44,7 @@ export function TasksContent({
 
   return (
     <Layout
-      title="Tasks"
+      title="Задачи"
       fab={
         <button
           onClick={() => onShowCreateModal(true)}
@@ -63,9 +63,9 @@ export function TasksContent({
 
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 text-center">
-          <p className="text-lg text-[var(--tg-theme-hint-color)]">No tasks yet</p>
+          <p className="text-lg text-[var(--tg-theme-hint-color)]">Задач пока нет</p>
           <p className="mt-1 text-sm text-[var(--tg-theme-hint-color)]">
-            Create one using the + button or /task in chat
+            Создайте задачу кнопкой + или командой /task в чате
           </p>
         </div>
       ) : viewMode === 'list' ? (

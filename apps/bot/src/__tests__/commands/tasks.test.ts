@@ -51,7 +51,7 @@ describe('TasksCommand', () => {
 
     await command.onTasks(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith('⚠️ /tasks can only be used in group chats.');
+    expect(ctx.reply).toHaveBeenCalledWith('⚠️ /tasks можно использовать только в групповых чатах.');
   });
 
   it('should show no-tasks message when empty', async () => {
@@ -62,7 +62,7 @@ describe('TasksCommand', () => {
     await command.onTasks(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('No tasks yet')
+      expect.stringContaining('пока нет задач')
     );
   });
 

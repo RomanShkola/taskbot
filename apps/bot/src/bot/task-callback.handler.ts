@@ -1,4 +1,4 @@
-import { TASK_PRIORITY_ORDER, TaskPriority } from '@tbot/shared';
+import { TASK_PRIORITY_LABELS, TASK_PRIORITY_ORDER, TaskPriority } from '@tbot/shared';
 import { BotContext } from 'src/bot/interface/context';
 import { buildTaskButtons, formatTaskCard, storeTaskCallbackData } from 'src/bot/task-card.renderer';
 import { ITask, Task } from 'src/database/models/task.model';
@@ -34,13 +34,13 @@ export async function handleTaskCallback(ctx: BotContext) {
 
     const task = await taskService.getTaskById(cbData.taskId);
     if (!task) {
-      await ctx.answerCbQuery('Task not found.');
+      await ctx.answerCbQuery('Задача не найдена.');
       return;
     }
 
     const fromUser = await userService.findUserByTelegramId(callbackQuery.from.id);
     if (!fromUser) {
-      await ctx.answerCbQuery('User not recognized. Please /start first.');
+      await ctx.answerCbQuery('Пользователь не найден. Сначала отправьте /start.');
       return;
     }
 
@@ -73,22 +73,23 @@ export async function handleTaskCallback(ctx: BotContext) {
         await handleDelete(ctx, task, fromUser);
         break;
       default:
-        await ctx.answerCbQuery('Unknown action.');
+        await ctx.answerCbQuery('Неизвестное действие.');
     }
   } catch (error) {
     logger.error(`Task callback error: ${error}`);
-    await ctx.answerCbQuery('Something went wrong. Please try again.');
+    await ctx.answerCbQuery('Что-то пошло не так. Попробуйте еще раз.');
   }
 }
 
 async function handleStatusChange(ctx: BotContext, task: ITask, newStatus: string, user: IUser) {
   const updatedTask = await taskService.updateTaskStatus(task._id, newStatus);
   if (!updatedTask) {
-    await ctx.answerCbQuery('Failed to update status.');
+    await ctx.answerCbQuery('Не удалось обновить статус.');
     return;
   }
 
-  const statusText = newStatus === 'done' ? 'completed' : newStatus === 'in_progress' ? 'started' : 'reopened';
+  const statusText = newStatus === 'done' ? 'завершил(а)' : newStatus === 'in_progress' ? 'взял(а) в работу' : 'вернул(а)';
+  const callbackText = newStatus === 'done' ? 'Задача завершена' : newStatus === 'in_progress' ? 'Задача в работе' : 'Задача возвращена';
   const displayName = userService.getDisplayName(user);
 
   // Update the task card message
@@ -113,7 +114,7 @@ async function handleStatusChange(ctx: BotContext, task: ITask, newStatus: strin
     }
   }
 
-  await ctx.answerCbQuery(`Task ${statusText}!`);
+  await ctx.answerCbQuery(callbackText);
 }
 
 async function handlePriorityCycle(ctx: BotContext, task: ITask) {
@@ -123,12 +124,12 @@ async function handlePriorityCycle(ctx: BotContext, task: ITask) {
 
   const updatedTask = await taskService.updateTask(task._id, { priority: newPriority });
   if (!updatedTask) {
-    await ctx.answerCbQuery('Failed to update priority.');
+    await ctx.answerCbQuery('Не удалось обновить приоритет.');
     return;
   }
 
   await updateTaskCardMessage(ctx, updatedTask);
-  await ctx.answerCbQuery(`Priority: ${newPriority}`);
+  await ctx.answerCbQuery(`Приоритет: ${TASK_PRIORITY_LABELS[newPriority] || newPriority}`);
 }
 
 function getRefId(ref: unknown): string | null {
@@ -161,24 +162,24 @@ async function handleShowAssignPicker(ctx: BotContext, task: ITask) {
   const unassignCb = await storeTaskCallbackData(task._id.toString(), 'unassign');
   const cancelCb = await storeTaskCallbackData(task._id.toString(), 'assign_cancel');
   rows.push([
-    { text: '🚫 Unassign', callback_data: unassignCb },
-    { text: '✖ Cancel', callback_data: cancelCb },
+    { text: '🚫 Снять', callback_data: unassignCb },
+    { text: '✖ Отмена', callback_data: cancelCb },
   ]);
 
   await ctx.editMessageReplyMarkup({ inline_keyboard: rows });
-  await ctx.answerCbQuery('Select an assignee');
+  await ctx.answerCbQuery('Выберите исполнителя');
 }
 
 async function handleAssignTo(ctx: BotContext, task: ITask, actingUser: IUser, assigneeUserId: string) {
   const assignee = await User.findById(assigneeUserId);
   if (!assignee) {
-    await ctx.answerCbQuery('User not found.');
+    await ctx.answerCbQuery('Пользователь не найден.');
     return;
   }
 
   const updatedTask = await taskService.assignTask(task._id, assignee._id);
   if (!updatedTask) {
-    await ctx.answerCbQuery('Failed to update assignee.');
+    await ctx.answerCbQuery('Не удалось назначить исполнителя.');
     return;
   }
 
@@ -190,24 +191,24 @@ async function handleAssignTo(ctx: BotContext, task: ITask, actingUser: IUser, a
   if (chatId) {
     await ctx.telegram.sendMessage(
       chatId,
-      `👤 ${actingName} assigned ${assigneeName} to *#${updatedTask.taskNumber}*`,
+      `👤 ${actingName} назначил(а) ${assigneeName} на *#${updatedTask.taskNumber}*`,
       { parse_mode: 'Markdown' },
     );
   }
 
   await notificationService.notifyAssignment(updatedTask, assignee, actingUser);
-  await ctx.answerCbQuery(`Assigned to ${assigneeName}`);
+  await ctx.answerCbQuery(`Назначено: ${assigneeName}`);
 }
 
 async function handleUnassign(ctx: BotContext, task: ITask) {
   const updatedTask = await taskService.assignTask(task._id, null);
   if (!updatedTask) {
-    await ctx.answerCbQuery('Failed to update assignee.');
+    await ctx.answerCbQuery('Не удалось убрать исполнителя.');
     return;
   }
 
   await updateTaskCardMessage(ctx, updatedTask);
-  await ctx.answerCbQuery('Unassigned.');
+  await ctx.answerCbQuery('Исполнитель снят.');
 }
 
 async function handleAssignCancel(ctx: BotContext, task: ITask) {
@@ -233,13 +234,13 @@ async function canDeleteTask(ctx: BotContext, task: ITask, user: IUser): Promise
 
 async function handleDelete(ctx: BotContext, task: ITask, user: IUser) {
   if (!(await canDeleteTask(ctx, task, user))) {
-    await ctx.answerCbQuery('Only the task creator or a group admin can delete this task.', { show_alert: true });
+    await ctx.answerCbQuery('Удалить задачу может только автор или администратор группы.', { show_alert: true });
     return;
   }
 
   const deleted = await taskService.deleteTask(task._id);
   if (!deleted) {
-    await ctx.answerCbQuery('Failed to delete task.');
+    await ctx.answerCbQuery('Не удалось удалить задачу.');
     return;
   }
 
@@ -255,12 +256,12 @@ async function handleDelete(ctx: BotContext, task: ITask, user: IUser) {
   // Post deletion notification
   const chatId = ctx.chat?.id;
   if (chatId) {
-    await ctx.telegram.sendMessage(chatId, `🗑 ${displayName} deleted *#${task.taskNumber}* — ${task.title}`, {
+    await ctx.telegram.sendMessage(chatId, `🗑 ${displayName} удалил(а) *#${task.taskNumber}* — ${task.title}`, {
       parse_mode: 'Markdown',
     });
   }
 
-  await ctx.answerCbQuery('Task deleted.');
+  await ctx.answerCbQuery('Задача удалена.');
 }
 
 async function updateTaskCardMessage(ctx: BotContext, task: ITask) {
@@ -271,11 +272,26 @@ async function updateTaskCardMessage(ctx: BotContext, task: ITask) {
     const text = formatTaskCard(task, creator, assignee);
     const buttons = await buildTaskButtons(task);
 
-    await ctx.editMessageText(text, {
-      parse_mode: 'Markdown',
-      reply_markup: { inline_keyboard: buttons },
-    });
+    if (hasCaptionCardAttachment(task)) {
+      await ctx.editMessageCaption(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons },
+      });
+    } else {
+      await ctx.editMessageText(text, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons },
+      });
+    }
   } catch (error) {
     logger.error(`Failed to update task card message: ${error}`);
   }
+}
+
+function hasCaptionCardAttachment(task: ITask): boolean {
+  return Boolean(
+    task.attachments?.some((attachment) =>
+      ['photo', 'video', 'animation', 'document', 'audio', 'voice'].includes(attachment.type)
+    )
+  );
 }

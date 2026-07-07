@@ -10,7 +10,7 @@ export function TaskList({ tasks, onTaskClick }: TaskListProps) {
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
-        <p className="text-[var(--tg-theme-hint-color)]">No tasks found</p>
+        <p className="text-[var(--tg-theme-hint-color)]">Задачи не найдены</p>
       </div>
     );
   }

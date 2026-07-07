@@ -39,7 +39,7 @@ export function TaskKanban({ tasks, onTaskClick }: TaskKanbanProps) {
 
           <div className="flex flex-col gap-2 p-2">
             {groupedTasks[status].length === 0 ? (
-              <p className="py-4 text-center text-xs text-[var(--tg-theme-hint-color)]">No tasks</p>
+              <p className="py-4 text-center text-xs text-[var(--tg-theme-hint-color)]">Нет задач</p>
             ) : (
               groupedTasks[status].map((task) => (
                 <TaskCard key={task._id} task={task} onClick={onTaskClick} />

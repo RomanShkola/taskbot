@@ -8,6 +8,29 @@ export interface ISourceMessage {
   link: string;
 }
 
+export type TaskAttachmentType =
+  | 'photo'
+  | 'video'
+  | 'animation'
+  | 'document'
+  | 'audio'
+  | 'voice'
+  | 'video_note'
+  | 'sticker';
+
+export interface ITaskAttachment {
+  type: TaskAttachmentType;
+  fileId: string;
+  fileUniqueId?: string;
+  fileName?: string;
+  mimeType?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
+  duration?: number;
+  thumbnailFileId?: string;
+}
+
 export interface ITask extends Document {
   groupId: mongoose.Types.ObjectId;
   title: string;
@@ -19,6 +42,7 @@ export interface ITask extends Document {
   dueDate?: Date;
   taskNumber: number;
   sourceMessage?: ISourceMessage;
+  attachments?: ITaskAttachment[];
   completedAt?: Date;
   reminderSent?: boolean;
   taskCardMessageId?: number;
@@ -34,6 +58,26 @@ const SourceMessageSchema = new Schema(
     text: { type: String, default: '' },
     fromUserId: { type: Number, required: true },
     link: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
+const TaskAttachmentSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ['photo', 'video', 'animation', 'document', 'audio', 'voice', 'video_note', 'sticker'],
+      required: true,
+    },
+    fileId: { type: String, required: true },
+    fileUniqueId: { type: String, default: null },
+    fileName: { type: String, default: null },
+    mimeType: { type: String, default: null },
+    fileSize: { type: Number, default: null },
+    width: { type: Number, default: null },
+    height: { type: Number, default: null },
+    duration: { type: Number, default: null },
+    thumbnailFileId: { type: String, default: null },
   },
   { _id: false }
 );
@@ -86,6 +130,10 @@ const TaskSchema: Schema = new Schema(
     sourceMessage: {
       type: SourceMessageSchema,
       default: null,
+    },
+    attachments: {
+      type: [TaskAttachmentSchema],
+      default: [],
     },
     completedAt: {
       type: Date,

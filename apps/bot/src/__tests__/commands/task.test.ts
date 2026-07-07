@@ -40,6 +40,12 @@ function createMockCtx(overrides: Record<string, any> = {}) {
       ...overrides.message,
     },
     reply: jest.fn().mockResolvedValue({ message_id: 999 }),
+    replyWithPhoto: jest.fn().mockResolvedValue({ message_id: 999 }),
+    replyWithVideo: jest.fn().mockResolvedValue({ message_id: 999 }),
+    replyWithAnimation: jest.fn().mockResolvedValue({ message_id: 999 }),
+    replyWithDocument: jest.fn().mockResolvedValue({ message_id: 999 }),
+    replyWithAudio: jest.fn().mockResolvedValue({ message_id: 999 }),
+    replyWithVoice: jest.fn().mockResolvedValue({ message_id: 999 }),
     ...overrides,
   } as any;
 }
@@ -66,7 +72,7 @@ describe('TaskCommand', () => {
 
     await command.onTask(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith('⚠️ /task can only be used in group chats.');
+    expect(ctx.reply).toHaveBeenCalledWith('⚠️ /task можно использовать только в групповых чатах.');
   });
 
   it('should show usage when no args and no reply', async () => {
@@ -74,8 +80,8 @@ describe('TaskCommand', () => {
 
     await command.onTask(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('Usage'),
+      expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('Как использовать'),
       expect.any(Object)
     );
   });
@@ -90,6 +96,40 @@ describe('TaskCommand', () => {
         title: 'Deploy the API server',
         groupId: mockGroupId,
         createdBy: mockUserId,
+      })
+    );
+  });
+
+  it('should create task from a media caption command', async () => {
+    const ctx = createMockCtx({
+      message: {
+        caption: '/task Review the attached design',
+        photo: [{ file_id: 'photo-1', file_unique_id: 'photo-u1', width: 100, height: 100 }],
+      },
+    });
+
+    await command.onTask(ctx);
+
+    expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+      'photo-1',
+      expect.objectContaining({
+        caption: expect.any(String),
+        parse_mode: 'Markdown',
+        reply_markup: expect.any(Object),
+      })
+    );
+    expect(taskService.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Review the attached design',
+        groupId: mockGroupId,
+        createdBy: mockUserId,
+        attachments: [
+          expect.objectContaining({
+            type: 'photo',
+            fileId: 'photo-1',
+            fileUniqueId: 'photo-u1',
+          }),
+        ],
       })
     );
   });
@@ -113,6 +153,64 @@ describe('TaskCommand', () => {
         title: expect.stringContaining('fix the login bug'),
         sourceMessage: expect.objectContaining({
           messageId: 42,
+        }),
+      })
+    );
+  });
+
+  it('should create task from replied media caption', async () => {
+    const ctx = createMockCtx({
+      message: {
+        text: '/task',
+        reply_to_message: {
+          caption: 'Please process this receipt',
+          document: { file_id: 'doc-1', file_unique_id: 'doc-u1' },
+          message_id: 42,
+          from: { id: 999 },
+        },
+      },
+    });
+
+    await command.onTask(ctx);
+
+    expect(taskService.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Please process this receipt',
+        description: 'Please process this receipt',
+        attachments: [
+          expect.objectContaining({
+            type: 'document',
+            fileId: 'doc-1',
+            fileUniqueId: 'doc-u1',
+          }),
+        ],
+        sourceMessage: expect.objectContaining({
+          messageId: 42,
+          text: 'Please process this receipt',
+        }),
+      })
+    );
+  });
+
+  it('should not generate source message links for basic groups', async () => {
+    const ctx = createMockCtx({
+      chat: { id: -5286014997, type: 'group', title: 'Basic Group' },
+      message: {
+        text: '/task',
+        reply_to_message: {
+          text: 'Source in a basic group',
+          message_id: 128,
+          from: { id: 999 },
+        },
+      },
+    });
+
+    await command.onTask(ctx);
+
+    expect(taskService.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceMessage: expect.objectContaining({
+          link: '',
         }),
       })
     );

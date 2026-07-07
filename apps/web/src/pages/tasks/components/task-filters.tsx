@@ -19,19 +19,19 @@ export function TaskFiltersBar({ filters, onFiltersChange, viewMode, onViewModeC
             onClick={() => onViewModeChange('list')}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'list' ? 'bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]' : 'text-[var(--tg-theme-hint-color)]'}`}
           >
-            ☰ List
+            ☰ Список
           </button>
           <button
             onClick={() => onViewModeChange('kanban')}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'kanban' ? 'bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)]' : 'text-[var(--tg-theme-hint-color)]'}`}
           >
-            ▦ Board
+            ▦ Доска
           </button>
         </div>
 
         <input
           type="text"
-          placeholder="Search tasks..."
+          placeholder="Поиск задач..."
           value={filters.search || ''}
           onChange={(e) => onFiltersChange({ ...filters, search: e.target.value || undefined, page: 1 })}
           className="flex-1 rounded-lg border border-[var(--tg-theme-secondary-bg-color)] bg-transparent px-3 py-1.5 text-sm text-[var(--tg-theme-text-color)] placeholder:text-[var(--tg-theme-hint-color)] outline-none focus:border-[var(--tg-theme-link-color)]"
@@ -45,7 +45,7 @@ export function TaskFiltersBar({ filters, onFiltersChange, viewMode, onViewModeC
           onChange={(e) => onFiltersChange({ ...filters, status: (e.target.value as TaskStatus) || undefined, page: 1 })}
           className="rounded-lg border border-[var(--tg-theme-secondary-bg-color)] bg-transparent px-2 py-1 text-xs text-[var(--tg-theme-text-color)]"
         >
-          <option value="">All Status</option>
+          <option value="">Все статусы</option>
           {Object.entries(TASK_STATUS_LABELS).map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
           ))}
@@ -56,7 +56,7 @@ export function TaskFiltersBar({ filters, onFiltersChange, viewMode, onViewModeC
           onChange={(e) => onFiltersChange({ ...filters, priority: (e.target.value as TaskPriority) || undefined, page: 1 })}
           className="rounded-lg border border-[var(--tg-theme-secondary-bg-color)] bg-transparent px-2 py-1 text-xs text-[var(--tg-theme-text-color)]"
         >
-          <option value="">All Priority</option>
+          <option value="">Все приоритеты</option>
           {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
           ))}
@@ -67,7 +67,7 @@ export function TaskFiltersBar({ filters, onFiltersChange, viewMode, onViewModeC
             onClick={() => onFiltersChange({ page: 1 })}
             className="text-xs text-[var(--tg-theme-link-color)] whitespace-nowrap"
           >
-            Clear filters
+            Сбросить
           </button>
         )}
       </div>

@@ -12,16 +12,16 @@ export enum TaskPriority {
 }
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  [TaskStatus.TODO]: '📝 Todo',
-  [TaskStatus.IN_PROGRESS]: '🔄 In Progress',
-  [TaskStatus.DONE]: '✅ Done',
+  [TaskStatus.TODO]: '📝 Нужно сделать',
+  [TaskStatus.IN_PROGRESS]: '🔄 В работе',
+  [TaskStatus.DONE]: '✅ Готово',
 };
 
 export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
-  [TaskPriority.LOW]: '⬇️ Low',
-  [TaskPriority.MEDIUM]: '➡️ Medium',
-  [TaskPriority.HIGH]: '⬆️ High',
-  [TaskPriority.URGENT]: '🔴 Urgent',
+  [TaskPriority.LOW]: '⚪ Низкий',
+  [TaskPriority.MEDIUM]: '🟡 Средний',
+  [TaskPriority.HIGH]: '🟠 Высокий',
+  [TaskPriority.URGENT]: '🔴 Срочно',
 };
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [

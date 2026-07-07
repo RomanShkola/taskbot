@@ -3,6 +3,37 @@ import { IUser, User } from 'src/database/models/user.model';
 import logger from 'src/shared/logger/logger';
 
 export class UserService {
+  async upsertTelegramUser(telegramUser: {
+    id: number;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+  }): Promise<IUser | null> {
+    try {
+      return await User.findOneAndUpdate(
+        { telegramUserId: telegramUser.id },
+        {
+          $set: {
+            username: telegramUser.username,
+            firstName: telegramUser.first_name,
+            lastName: telegramUser.last_name,
+          },
+          $setOnInsert: {
+            telegramUserId: telegramUser.id,
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+          runValidators: true,
+        }
+      );
+    } catch (error) {
+      logger.error(`Error upserting Telegram user ${telegramUser.id}: ${error}`);
+      return null;
+    }
+  }
+
   async findOrCreateUser(ctx: BotContext): Promise<IUser | null> {
     try {
       const telegramUser = ctx.from;
@@ -12,28 +43,7 @@ export class UserService {
         return null;
       }
 
-      const telegramUserId = telegramUser.id;
-
-      const user = await User.findOneAndUpdate(
-        { telegramUserId },
-        {
-          $set: {
-            username: telegramUser.username,
-            firstName: telegramUser.first_name,
-            lastName: telegramUser.last_name,
-          },
-          $setOnInsert: {
-            telegramUserId,
-          },
-        },
-        {
-          upsert: true,
-          new: true,
-          runValidators: true,
-        }
-      );
-
-      return user;
+      return await this.upsertTelegramUser(telegramUser);
     } catch (error) {
       logger.error(`Error in findOrCreateUser: ${error}`);
       return null;
@@ -78,9 +88,9 @@ export class UserService {
 
   getDisplayName(user: IUser | null, userId?: number): string {
     if (!user) {
-      return userId ? `User ${userId}` : 'Unknown User';
+      return userId ? `Пользователь ${userId}` : 'Неизвестный пользователь';
     }
-    return user.username ? `@${user.username}` : user.firstName || `User ${user.telegramUserId}`;
+    return user.username ? `@${user.username}` : user.firstName || `Пользователь ${user.telegramUserId}`;
   }
 }
 

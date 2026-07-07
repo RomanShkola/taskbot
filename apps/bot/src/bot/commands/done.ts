@@ -24,7 +24,7 @@ export class DoneCommand {
       const chatType = ctx.chat?.type;
 
       if (!chatId || (chatType !== 'group' && chatType !== 'supergroup')) {
-        await ctx.reply('⚠️ /done can only be used in group chats.');
+        await ctx.reply('⚠️ /done можно использовать только в групповых чатах.');
         return;
       }
 
@@ -34,7 +34,7 @@ export class DoneCommand {
       const chatTitle = 'title' in ctx.chat! ? (ctx.chat as { title: string }).title : 'Group';
       const group = await groupService.findOrCreateGroup(chatId, chatTitle);
       if (!group) {
-        await ctx.reply('❌ Could not find this group.');
+        await ctx.reply('❌ Не удалось найти эту группу.');
         return;
       }
 
@@ -50,7 +50,7 @@ export class DoneCommand {
         const task = await taskService.getTaskByNumber(group._id, taskNumber);
 
         if (!task) {
-          await ctx.reply(`❌ Task #${taskNumber} not found in this group.`);
+          await ctx.reply(`❌ Задача #${taskNumber} не найдена в этой группе.`);
           return;
         }
 
@@ -63,7 +63,7 @@ export class DoneCommand {
       if (!args && replyTo) {
         const task = await taskService.getTaskByCardMessage(chatId, replyTo.message_id);
         if (!task) {
-          await ctx.reply("❌ That message isn't a task card. Reply to a task card or use `/done #123`.", {
+          await ctx.reply('❌ Это сообщение не является карточкой задачи. Ответьте на карточку задачи или используйте `/done #123`.', {
             parse_mode: 'Markdown',
           });
           return;
@@ -75,27 +75,27 @@ export class DoneCommand {
 
       if (!args) {
         await ctx.reply(
-          '📋 *Usage:*\n' +
-            '• `/done #123` — mark task #123 as done\n' +
-            '• `/done 123` — same as above\n' +
-            '• Reply to a task card with `/done`',
+          '📋 *Как использовать:*\n' +
+            '• `/done #123` — отметить задачу #123 как готовую\n' +
+            '• `/done 123` — то же самое\n' +
+            '• Ответьте на карточку задачи командой `/done`',
           { parse_mode: 'Markdown' },
         );
         return;
       }
 
-      await ctx.reply('❌ Invalid task number. Use `/done #123` or `/done 123`.', {
+      await ctx.reply('❌ Неверный номер задачи. Используйте `/done #123` или `/done 123`.', {
         parse_mode: 'Markdown',
       });
     } catch (error) {
       logger.error(`Error in /done command: ${error}`);
-      await ctx.reply('❌ Failed to complete task. Please try again.');
+      await ctx.reply('❌ Не удалось завершить задачу. Попробуйте еще раз.');
     }
   }
 
   private async completeTask(ctx: BotContext, task: ITask, user: IUser) {
     if (task.status === 'done') {
-      await ctx.reply(`ℹ️ Task #${task.taskNumber} is already done.`);
+      await ctx.reply(`ℹ️ Задача #${task.taskNumber} уже готова.`);
       return;
     }
 
@@ -103,7 +103,7 @@ export class DoneCommand {
     if (!updatedTask) return;
 
     const displayName = userService.getDisplayName(user);
-    await ctx.reply(`✅ ${displayName} completed *#${updatedTask.taskNumber}* — ${updatedTask.title}`, {
+    await ctx.reply(`✅ ${displayName} завершил(а) *#${updatedTask.taskNumber}* — ${updatedTask.title}`, {
       parse_mode: 'Markdown',
     });
   }

@@ -40,14 +40,14 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit, isLoading }: Create
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-t-2xl sm:rounded-2xl bg-[var(--tg-theme-bg-color)] p-5 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[var(--tg-theme-text-color)]">Create Task</h2>
+          <h2 className="text-lg font-semibold text-[var(--tg-theme-text-color)]">Создать задачу</h2>
           <button onClick={onClose} className="text-[var(--tg-theme-hint-color)] text-xl">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input
             type="text"
-            placeholder="Task title *"
+            placeholder="Название задачи *"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
@@ -57,7 +57,7 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit, isLoading }: Create
           />
 
           <textarea
-            placeholder="Description (optional)"
+            placeholder="Описание (необязательно)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
@@ -89,7 +89,7 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit, isLoading }: Create
             disabled={!title.trim() || isLoading}
             className="mt-1 rounded-lg bg-[var(--tg-theme-button-color)] py-2.5 text-sm font-medium text-[var(--tg-theme-button-text-color)] transition-opacity disabled:opacity-50"
           >
-            {isLoading ? 'Creating...' : 'Create Task'}
+            {isLoading ? 'Создаем...' : 'Создать задачу'}
           </button>
         </form>
       </div>

@@ -26,19 +26,35 @@ export const mentionCheckMiddleware = async (ctx: BotContext, next: () => Promis
       }
     }
 
-    if (!ctx.message || !('text' in ctx.message)) {
+    if (!ctx.message) {
       return;
     }
 
-    const messageText = ctx.message.text || '';
+    const messageText =
+      ('text' in ctx.message && ctx.message.text) ||
+      ('caption' in ctx.message && ctx.message.caption) ||
+      '';
+
+    if (!messageText) {
+      return;
+    }
+
     const mentionPattern = `@${botUsername}`;
+
+    if (messageText.startsWith('/')) {
+      logger.info(`Bot command in ${chatType} by user ${ctx.from?.id}: ${messageText}`);
+      return next();
+    }
 
     if (messageText.includes(mentionPattern)) {
       logger.info(`Bot mentioned in ${chatType} by user ${ctx.from?.id}`);
       return next();
     }
 
-    const entities = ctx.message.entities || [];
+    const entities =
+      ('entities' in ctx.message && ctx.message.entities) ||
+      ('caption_entities' in ctx.message && ctx.message.caption_entities) ||
+      [];
     const isMentioned = entities.some((entity) => {
       if (entity.type === 'mention') {
         const mention = messageText.substring(entity.offset, entity.offset + entity.length);

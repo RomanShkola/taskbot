@@ -52,7 +52,7 @@ describe('DoneCommand', () => {
 
     await command.onDone(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith('⚠️ /done can only be used in group chats.');
+    expect(ctx.reply).toHaveBeenCalledWith('⚠️ /done можно использовать только в групповых чатах.');
   });
 
   it('should mark task as done by number with #', async () => {
@@ -94,7 +94,7 @@ describe('DoneCommand', () => {
 
     await command.onDone(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith('❌ Task #99 not found in this group.');
+    expect(ctx.reply).toHaveBeenCalledWith('❌ Задача #99 не найдена в этой группе.');
   });
 
   it('should show message when task already done', async () => {
@@ -106,7 +106,7 @@ describe('DoneCommand', () => {
 
     await command.onDone(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith('ℹ️ Task #1 is already done.');
+    expect(ctx.reply).toHaveBeenCalledWith('ℹ️ Задача #1 уже готова.');
     expect(taskService.updateTaskStatus).not.toHaveBeenCalled();
   });
 
@@ -115,8 +115,8 @@ describe('DoneCommand', () => {
 
     await command.onDone(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('Usage'),
+      expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('Как использовать'),
       expect.objectContaining({ parse_mode: 'Markdown' })
     );
   });
@@ -127,7 +127,7 @@ describe('DoneCommand', () => {
     await command.onDone(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid task number'),
+      expect.stringContaining('Неверный номер задачи'),
       expect.any(Object)
     );
   });

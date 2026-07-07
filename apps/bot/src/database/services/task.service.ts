@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { ITask, Task } from 'src/database/models/task.model';
+import { ITask, ITaskAttachment, Task } from 'src/database/models/task.model';
 import { groupService } from 'src/database/services/group.service';
 import logger from 'src/shared/logger/logger';
 
@@ -18,6 +18,7 @@ export interface CreateTaskData {
     fromUserId: number;
     link: string;
   };
+  attachments?: ITaskAttachment[];
 }
 
 export interface TaskFilters {

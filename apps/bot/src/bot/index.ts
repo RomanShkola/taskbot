@@ -13,10 +13,15 @@ import { configService } from 'src/configs/configuration';
 import logger from 'src/shared/logger/logger';
 import { Telegraf } from 'telegraf';
 
-const bot = new Telegraf<BotContext>(configService.botToken);
+const bot = new Telegraf<BotContext>(configService.botToken, {
+  telegram: {
+    apiRoot: process.env.TELEGRAM_API_ROOT || 'https://api.telegram.org',
+  },
+});
 
 bot.use(loggerMiddleware);
 bot.use(mentionCheckMiddleware);
+bot.use(authMiddleware);
 
 bot.start(async (ctx) => {
   await startCommand.onStart(ctx);
@@ -34,7 +39,23 @@ Array.from(publicCommands).forEach(([command, callback]) => {
   bot.command(command, callback);
 });
 
-bot.use(authMiddleware);
+bot.on('message', async (ctx, next) => {
+  const caption = 'caption' in ctx.message ? ctx.message.caption || '' : '';
+  const match = caption.match(/^\/task(?:@([a-zA-Z0-9_]+))?(?:\s|$)/);
+
+  if (!match) {
+    return next();
+  }
+
+  const [, addressedBot] = match;
+  const botUsername = ctx.botInfo?.username;
+
+  if (addressedBot && botUsername && addressedBot.toLowerCase() !== botUsername.toLowerCase()) {
+    return next();
+  }
+
+  await taskCommand.onTask(ctx);
+});
 
 // Handle task card button presses
 bot.on('callback_query', async (ctx: BotContext) => {
@@ -50,4 +71,3 @@ bot.catch((error, _ctx) => {
 });
 
 export { bot };
-

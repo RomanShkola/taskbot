@@ -14,23 +14,23 @@ export class SetUpBotCommand {
     this.commands = [
       {
         command: 'start',
-        description: 'Start the bot and show welcome message',
+        description: 'Запустить бота',
       },
       {
         command: 'help',
-        description: 'Show help information and available commands',
+        description: 'Показать справку',
       },
       {
         command: 'task',
-        description: 'Create a new task',
+        description: 'Создать задачу',
       },
       {
         command: 'tasks',
-        description: 'View tasks in this chat',
+        description: 'Показать задачи в чате',
       },
       {
         command: 'done',
-        description: 'Mark a task as done',
+        description: 'Отметить задачу готовой',
       },
     ];
   }
@@ -50,7 +50,7 @@ export class SetUpBotCommand {
       return;
     }
 
-    await telegramApiService.setChatMenuButton('Task Board', url);
+    await telegramApiService.setChatMenuButton('Доска задач', url);
   }
 }
 

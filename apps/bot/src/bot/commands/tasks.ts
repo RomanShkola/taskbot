@@ -23,7 +23,7 @@ export class TasksCommand {
       const chatType = ctx.chat?.type;
 
       if (!chatId || (chatType !== 'group' && chatType !== 'supergroup')) {
-        await ctx.reply('⚠️ /tasks can only be used in group chats.');
+        await ctx.reply('⚠️ /tasks можно использовать только в групповых чатах.');
         return;
       }
 
@@ -33,7 +33,7 @@ export class TasksCommand {
       const chatTitle = 'title' in ctx.chat! ? (ctx.chat as { title: string }).title : 'Group';
       const group = await groupService.findOrCreateGroup(chatId, chatTitle);
       if (!group) {
-        await ctx.reply('❌ Could not find this group.');
+        await ctx.reply('❌ Не удалось найти эту группу.');
         return;
       }
 
@@ -67,31 +67,31 @@ export class TasksCommand {
 
       if (total === 0) {
         await ctx.reply(
-          '📋 No tasks yet in this group.\n\nUse /task to create your first task!',
+          '📋 В этой группе пока нет задач.\n\nИспользуйте /task, чтобы создать первую задачу!',
         );
         return;
       }
 
       // Build summary
-      let summary = `📊 *Tasks in ${chatTitle}*\n━━━━━━━━━━━━━━━━━━━\n`;
+      let summary = `📊 *Задачи в ${chatTitle}*\n━━━━━━━━━━━━━━━━━━━\n`;
 
       for (const [status, label] of Object.entries(TASK_STATUS_LABELS)) {
         const count = stats[status] || 0;
         summary += `${label}: *${count}*\n`;
       }
-      summary += `\n📎 Total: *${total}* tasks`;
+      summary += `\n📎 Всего: *${total}*`;
 
       // If filtered, show filtered tasks
       if (Object.keys(filters).length > 0) {
         const { tasks } = await taskService.getTasksByGroup(group._id, filters);
         if (tasks.length > 0) {
-          summary += `\n\n📋 *Filtered results (${tasks.length}):*\n`;
+          summary += `\n\n📋 *Результаты фильтра (${tasks.length}):*\n`;
           for (const task of tasks.slice(0, 15)) {
             const statusEmoji = task.status === 'done' ? '✅' : task.status === 'in_progress' ? '🔄' : '📝';
             summary += `${statusEmoji} *#${task.taskNumber}* ${task.title}\n`;
           }
           if (tasks.length > 15) {
-            summary += `_...and ${tasks.length - 15} more_\n`;
+            summary += `_...и еще ${tasks.length - 15}_\n`;
           }
         }
       }
@@ -99,7 +99,7 @@ export class TasksCommand {
       await ctx.reply(summary, { parse_mode: 'Markdown' });
     } catch (error) {
       logger.error(`Error in /tasks command: ${error}`);
-      await ctx.reply('❌ Failed to load tasks. Please try again.');
+      await ctx.reply('❌ Не удалось загрузить задачи. Попробуйте еще раз.');
     }
   }
 }
