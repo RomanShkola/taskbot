@@ -55,6 +55,7 @@ describe('TaskCommand', () => {
 
   beforeEach(() => {
     command = new TaskCommand();
+    jest.useRealTimers();
     jest.clearAllMocks();
     (userService.findOrCreateUser as jest.Mock).mockResolvedValue(mockUser);
     (groupService.findOrCreateGroup as jest.Mock).mockResolvedValue(mockGroup);
@@ -132,6 +133,76 @@ describe('TaskCommand', () => {
         ],
       })
     );
+  });
+
+  it('should count a gif animation as one attachment when Telegram also sends document data', async () => {
+    const ctx = createMockCtx({
+      message: {
+        caption: '/task Check this gif',
+        animation: {
+          file_id: 'gif-animation',
+          file_unique_id: 'gif-u1',
+          width: 320,
+          height: 240,
+          duration: 3,
+        },
+        document: {
+          file_id: 'gif-document',
+          file_unique_id: 'gif-u1',
+          file_name: 'animation.gif',
+          mime_type: 'video/mp4',
+        },
+      },
+    });
+
+    await command.onTask(ctx);
+
+    expect(taskService.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachments: [
+          expect.objectContaining({
+            type: 'animation',
+            fileId: 'gif-animation',
+            fileUniqueId: 'gif-u1',
+          }),
+        ],
+      })
+    );
+  });
+
+  it('should collect media group attachments into one task', async () => {
+    jest.useFakeTimers();
+
+    const firstCtx = createMockCtx({
+      message: {
+        media_group_id: 'album-1',
+        photo: [{ file_id: 'photo-1', file_unique_id: 'photo-u1', width: 100, height: 100 }],
+      },
+    });
+    const taskCtx = createMockCtx({
+      message: {
+        media_group_id: 'album-1',
+        caption: '/task Album task',
+        photo: [{ file_id: 'photo-2', file_unique_id: 'photo-u2', width: 120, height: 120 }],
+      },
+    });
+
+    command.collectMediaGroupMessage(firstCtx);
+    const taskPromise = command.onTask(taskCtx);
+    await jest.advanceTimersByTimeAsync(1300);
+    await taskPromise;
+
+    expect(taskService.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Album task',
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ type: 'photo', fileId: 'photo-1', fileUniqueId: 'photo-u1' }),
+          expect.objectContaining({ type: 'photo', fileId: 'photo-2', fileUniqueId: 'photo-u2' }),
+        ]),
+      })
+    );
+    const createArg = (taskService.createTask as jest.Mock).mock.calls[0][0];
+    expect(createArg.attachments).toHaveLength(2);
   });
 
   it('should create task from reply-to-message', async () => {

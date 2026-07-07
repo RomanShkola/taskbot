@@ -8,6 +8,16 @@ import { userService } from 'src/database/services/user.service';
 import { notificationService } from 'src/shared/services/notification.service';
 import logger from 'src/shared/logger/logger';
 
+const MEDIA_GROUP_COLLECT_MS = 1200;
+const MEDIA_GROUP_CACHE_TTL_MS = 30_000;
+
+interface MediaGroupCacheEntry {
+  attachments: ITaskAttachment[];
+  cleanup: NodeJS.Timeout;
+}
+
+const mediaGroupCache = new Map<string, MediaGroupCacheEntry>();
+
 export class TaskCommand {
   private map: Map<string, (ctx: BotContext) => void>;
 
@@ -18,6 +28,32 @@ export class TaskCommand {
   register() {
     this.map.set('task', this.onTask.bind(this));
     return this.map;
+  }
+
+  collectMediaGroupMessage(ctx: BotContext) {
+    const message = ctx.message as Record<string, any> | undefined;
+    const mediaGroupId = message?.media_group_id;
+    const chatId = ctx.chat?.id;
+
+    if (!chatId || !mediaGroupId) return;
+
+    const attachments = extractTaskAttachments(message);
+    if (attachments.length === 0) return;
+
+    const key = getMediaGroupCacheKey(chatId, mediaGroupId);
+    const existing = mediaGroupCache.get(key);
+
+    if (existing) {
+      existing.attachments = mergeAttachments(existing.attachments, attachments);
+      return;
+    }
+
+    const cleanup = setTimeout(() => mediaGroupCache.delete(key), MEDIA_GROUP_CACHE_TTL_MS);
+    cleanup.unref?.();
+    mediaGroupCache.set(key, {
+      attachments,
+      cleanup,
+    });
   }
 
   async onTask(ctx: BotContext) {
@@ -91,7 +127,7 @@ export class TaskCommand {
       } else if (args) {
         // Direct flow: /task Deploy the new API server
         title = args;
-        attachments = extractTaskAttachments(message);
+        attachments = await this.getDirectMessageAttachments(ctx);
       } else {
         await ctx.reply(
           '📋 *Как использовать:*\n' +
@@ -166,6 +202,29 @@ export class TaskCommand {
       await ctx.reply('❌ Не удалось создать задачу. Попробуйте еще раз.');
     }
   }
+
+  private async getDirectMessageAttachments(ctx: BotContext): Promise<ITaskAttachment[]> {
+    const message = ctx.message as Record<string, any> | undefined;
+    const mediaGroupId = message?.media_group_id;
+    const chatId = ctx.chat?.id;
+
+    if (!chatId || !mediaGroupId) {
+      return extractTaskAttachments(message || {});
+    }
+
+    this.collectMediaGroupMessage(ctx);
+    await sleep(MEDIA_GROUP_COLLECT_MS);
+
+    const key = getMediaGroupCacheKey(chatId, mediaGroupId);
+    const entry = mediaGroupCache.get(key);
+    if (!entry) {
+      return extractTaskAttachments(message || {});
+    }
+
+    clearTimeout(entry.cleanup);
+    mediaGroupCache.delete(key);
+    return entry.attachments;
+  }
 }
 
 export const taskCommand = new TaskCommand();
@@ -235,9 +294,7 @@ function extractTaskAttachments(message: Record<string, any>): ITaskAttachment[]
 
   if ('animation' in message && message.animation) {
     attachments.push(buildMediaAttachment('animation', message.animation));
-  }
-
-  if ('document' in message && message.document) {
+  } else if ('document' in message && message.document) {
     attachments.push(buildMediaAttachment('document', message.document));
   }
 
@@ -257,7 +314,7 @@ function extractTaskAttachments(message: Record<string, any>): ITaskAttachment[]
     attachments.push(buildMediaAttachment('sticker', message.sticker));
   }
 
-  return attachments;
+  return mergeAttachments([], attachments);
 }
 
 function buildMediaAttachment(type: ITaskAttachment['type'], media: Record<string, any>): ITaskAttachment {
@@ -273,4 +330,24 @@ function buildMediaAttachment(type: ITaskAttachment['type'], media: Record<strin
     duration: media.duration,
     thumbnailFileId: media.thumbnail?.file_id || media.thumb?.file_id,
   };
+}
+
+function mergeAttachments(existing: ITaskAttachment[], incoming: ITaskAttachment[]): ITaskAttachment[] {
+  const byKey = new Map<string, ITaskAttachment>();
+
+  for (const attachment of [...existing, ...incoming]) {
+    const key = attachment.fileUniqueId || attachment.fileId;
+    if (!key) continue;
+    byKey.set(key, attachment);
+  }
+
+  return [...byKey.values()];
+}
+
+function getMediaGroupCacheKey(chatId: number, mediaGroupId: string) {
+  return `${chatId}:${mediaGroupId}`;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -40,6 +40,8 @@ Array.from(publicCommands).forEach(([command, callback]) => {
 });
 
 bot.on('message', async (ctx, next) => {
+  taskCommand.collectMediaGroupMessage(ctx);
+
   const caption = 'caption' in ctx.message ? ctx.message.caption || '' : '';
   const match = caption.match(/^\/task(?:@([a-zA-Z0-9_]+))?(?:\s|$)/);
 

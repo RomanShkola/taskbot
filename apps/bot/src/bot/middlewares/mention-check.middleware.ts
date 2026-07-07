@@ -36,6 +36,9 @@ export const mentionCheckMiddleware = async (ctx: BotContext, next: () => Promis
       '';
 
     if (!messageText) {
+      if ('media_group_id' in ctx.message && ctx.message.media_group_id) {
+        return next();
+      }
       return;
     }
 
