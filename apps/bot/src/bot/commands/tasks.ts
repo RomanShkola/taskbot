@@ -75,11 +75,11 @@ export class TasksCommand {
       }
 
       // Build summary
-      let summary = `📊 *Задачи в ${chatTitle}*\n━━━━━━━━━━━━━━━━━━━\n`;
+      let summary = `📊 *Задачи в ${this.escapeMarkdownV2(chatTitle)}*\n━━━━━━━━━━━━━━━━━━━\n`;
 
       for (const [status, label] of Object.entries(TASK_STATUS_LABELS)) {
         const count = stats[status] || 0;
-        summary += `${label}: *${count}*\n`;
+        summary += `${this.escapeMarkdownV2(label)}: *${count}*\n`;
       }
       summary += `\n📎 Всего: *${total}*`;
 
@@ -89,7 +89,7 @@ export class TasksCommand {
 
       if (visibleTasks.length > 0) {
         summary += hasFilters
-          ? `\n\n📋 *Результаты фильтра (${tasks.length}):*\n`
+          ? `\n\n📋 *Результаты фильтра \\(${tasks.length}\\):*\n`
           : `\n\n📋 *Последние задачи:*\n`;
 
         for (const task of visibleTasks) {
@@ -97,13 +97,13 @@ export class TasksCommand {
         }
 
         if (tasks.length > 15) {
-          summary += `_...и еще ${tasks.length - 15}_\n`;
+          summary += `_\\.\\.\\.и еще ${tasks.length - 15}_\n`;
         }
       } else if (hasFilters) {
-        summary += `\n\n📋 По этому фильтру задач нет.`;
+        summary += `\n\n📋 По этому фильтру задач нет\\.`;
       }
 
-      await ctx.reply(summary, { parse_mode: 'Markdown' });
+      await ctx.reply(summary, { parse_mode: 'MarkdownV2' });
     } catch (error) {
       logger.error(`Error in /tasks command: ${error}`);
       await ctx.reply('❌ Не удалось загрузить задачи. Попробуйте еще раз.');
@@ -113,8 +113,9 @@ export class TasksCommand {
   private formatTaskListItem(task: ITask): string {
     const statusLabel = TASK_STATUS_LABELS[task.status as keyof typeof TASK_STATUS_LABELS] || task.status;
     const assignee = this.formatAssignee(task.assigneeId);
+    const taskNumber = this.formatTaskNumber(task);
 
-    return `• *#${task.taskNumber}* ${this.escapeMarkdown(task.title)}\n  ${statusLabel} · 👤 ${assignee}`;
+    return `• *${taskNumber}* ${this.escapeMarkdownV2(task.title)}\n  ${this.escapeMarkdownV2(statusLabel)} · 👤 ${assignee}`;
   }
 
   private formatAssignee(assignee: ITask['assigneeId'] | IUser | null | undefined): string {
@@ -123,15 +124,35 @@ export class TasksCommand {
     }
 
     if (assignee.username) {
-      return this.escapeMarkdown(`@${assignee.username}`);
+      return this.escapeMarkdownV2(`@${assignee.username}`);
     }
 
     const fullName = [assignee.firstName, assignee.lastName].filter(Boolean).join(' ');
-    return this.escapeMarkdown(fullName || 'без имени');
+    return this.escapeMarkdownV2(fullName || 'без имени');
   }
 
-  private escapeMarkdown(text: string): string {
-    return text.replace(/([_*\[\]()])/g, '\\$1');
+  private formatTaskNumber(task: ITask): string {
+    const label = `\\#${task.taskNumber}`;
+    const taskLink = this.getTaskMessageLink(task);
+
+    return taskLink ? `[${label}](${taskLink})` : label;
+  }
+
+  private getTaskMessageLink(task: ITask): string | null {
+    if (!task.taskCardChatId || !task.taskCardMessageId) {
+      return null;
+    }
+
+    const chatId = String(task.taskCardChatId);
+    if (!chatId.startsWith('-100')) {
+      return null;
+    }
+
+    return `https://t.me/c/${chatId.replace('-100', '')}/${task.taskCardMessageId}`;
+  }
+
+  private escapeMarkdownV2(text: string): string {
+    return text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
   }
 }
 

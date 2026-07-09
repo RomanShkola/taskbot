@@ -84,7 +84,7 @@ describe('TasksCommand', () => {
 
     expect(ctx.reply).toHaveBeenCalledWith(
       expect.stringContaining('18'),
-      expect.objectContaining({ parse_mode: 'Markdown' })
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
     );
   });
 
@@ -94,7 +94,14 @@ describe('TasksCommand', () => {
     (taskService.getTaskStats as jest.Mock).mockResolvedValue({ todo: 1, in_progress: 1, done: 0 });
     (taskService.getTasksByGroup as jest.Mock).mockResolvedValue({
       tasks: [
-        { taskNumber: 1, title: 'Task 1', status: 'todo', assigneeId: mockAssignee },
+        {
+          taskNumber: 1,
+          title: 'Task 1',
+          status: 'todo',
+          assigneeId: mockAssignee,
+          taskCardChatId: -100123,
+          taskCardMessageId: 321,
+        },
         { taskNumber: 2, title: 'Task 2', status: 'in_progress', assigneeId: null },
       ],
       total: 2,
@@ -105,11 +112,15 @@ describe('TasksCommand', () => {
     expect(taskService.getTasksByGroup).toHaveBeenCalledWith(mockGroupId, {});
     expect(ctx.reply).toHaveBeenCalledWith(
       expect.stringContaining('📝 Нужно сделать · 👤 @alice'),
-      expect.objectContaining({ parse_mode: 'Markdown' })
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
+    );
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('[\\#1](https://t.me/c/123/321)'),
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
     );
     expect(ctx.reply).toHaveBeenCalledWith(
       expect.stringContaining('🔄 В работе · 👤 не назначена'),
-      expect.objectContaining({ parse_mode: 'Markdown' })
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
     );
   });
 
@@ -130,7 +141,7 @@ describe('TasksCommand', () => {
     );
     expect(ctx.reply).toHaveBeenCalledWith(
       expect.stringContaining('📝 Нужно сделать · 👤 не назначена'),
-      expect.objectContaining({ parse_mode: 'Markdown' })
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
     );
   });
 
