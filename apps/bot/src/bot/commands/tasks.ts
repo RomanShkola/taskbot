@@ -1,5 +1,7 @@
 import { TASK_STATUS_LABELS } from '@tbot/shared';
 import { BotContext } from 'src/bot/interface/context';
+import { ITask } from 'src/database/models/task.model';
+import { IUser } from 'src/database/models/user.model';
 import { groupService } from 'src/database/services/group.service';
 import { taskService } from 'src/database/services/task.service';
 import { userService } from 'src/database/services/user.service';
@@ -81,19 +83,24 @@ export class TasksCommand {
       }
       summary += `\n📎 Всего: *${total}*`;
 
-      // If filtered, show filtered tasks
-      if (Object.keys(filters).length > 0) {
-        const { tasks } = await taskService.getTasksByGroup(group._id, filters);
-        if (tasks.length > 0) {
-          summary += `\n\n📋 *Результаты фильтра (${tasks.length}):*\n`;
-          for (const task of tasks.slice(0, 15)) {
-            const statusEmoji = task.status === 'done' ? '✅' : task.status === 'in_progress' ? '🔄' : '📝';
-            summary += `${statusEmoji} *#${task.taskNumber}* ${task.title}\n`;
-          }
-          if (tasks.length > 15) {
-            summary += `_...и еще ${tasks.length - 15}_\n`;
-          }
+      const hasFilters = Object.keys(filters).length > 0;
+      const { tasks } = await taskService.getTasksByGroup(group._id, filters);
+      const visibleTasks = tasks.slice(0, 15);
+
+      if (visibleTasks.length > 0) {
+        summary += hasFilters
+          ? `\n\n📋 *Результаты фильтра (${tasks.length}):*\n`
+          : `\n\n📋 *Последние задачи:*\n`;
+
+        for (const task of visibleTasks) {
+          summary += `${this.formatTaskListItem(task)}\n`;
         }
+
+        if (tasks.length > 15) {
+          summary += `_...и еще ${tasks.length - 15}_\n`;
+        }
+      } else if (hasFilters) {
+        summary += `\n\n📋 По этому фильтру задач нет.`;
       }
 
       await ctx.reply(summary, { parse_mode: 'Markdown' });
@@ -101,6 +108,30 @@ export class TasksCommand {
       logger.error(`Error in /tasks command: ${error}`);
       await ctx.reply('❌ Не удалось загрузить задачи. Попробуйте еще раз.');
     }
+  }
+
+  private formatTaskListItem(task: ITask): string {
+    const statusLabel = TASK_STATUS_LABELS[task.status as keyof typeof TASK_STATUS_LABELS] || task.status;
+    const assignee = this.formatAssignee(task.assigneeId);
+
+    return `• *#${task.taskNumber}* ${this.escapeMarkdown(task.title)}\n  ${statusLabel} · 👤 ${assignee}`;
+  }
+
+  private formatAssignee(assignee: ITask['assigneeId'] | IUser | null | undefined): string {
+    if (!assignee || typeof assignee !== 'object' || !('telegramUserId' in assignee)) {
+      return 'не назначена';
+    }
+
+    if (assignee.username) {
+      return this.escapeMarkdown(`@${assignee.username}`);
+    }
+
+    const fullName = [assignee.firstName, assignee.lastName].filter(Boolean).join(' ');
+    return this.escapeMarkdown(fullName || 'без имени');
+  }
+
+  private escapeMarkdown(text: string): string {
+    return text.replace(/([_*\[\]()])/g, '\\$1');
   }
 }
 

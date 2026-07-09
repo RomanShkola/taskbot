@@ -18,8 +18,16 @@ jest.mock('src/shared/logger/logger', () => ({
 
 const mockGroupId = new mongoose.Types.ObjectId();
 const mockUserId = new mongoose.Types.ObjectId();
+const mockAssigneeId = new mongoose.Types.ObjectId();
 
 const mockUser = { _id: mockUserId, telegramUserId: 123, username: 'testuser', firstName: 'Test' };
+const mockAssignee = {
+  _id: mockAssigneeId,
+  telegramUserId: 456,
+  username: 'alice',
+  firstName: 'Alice',
+  lastName: 'Smith',
+};
 const mockGroup = { _id: mockGroupId, telegramGroupId: -100123, groupName: 'Test Group' };
 
 function createMockCtx(overrides: Record<string, any> = {}) {
@@ -39,6 +47,7 @@ describe('TasksCommand', () => {
     jest.clearAllMocks();
     (userService.findOrCreateUser as jest.Mock).mockResolvedValue(mockUser);
     (groupService.findOrCreateGroup as jest.Mock).mockResolvedValue(mockGroup);
+    (taskService.getTasksByGroup as jest.Mock).mockResolvedValue({ tasks: [], total: 0 });
   });
 
   it('should register the tasks command', () => {
@@ -79,6 +88,31 @@ describe('TasksCommand', () => {
     );
   });
 
+  it('should show task assignee and current status in the default task list', async () => {
+    const ctx = createMockCtx();
+
+    (taskService.getTaskStats as jest.Mock).mockResolvedValue({ todo: 1, in_progress: 1, done: 0 });
+    (taskService.getTasksByGroup as jest.Mock).mockResolvedValue({
+      tasks: [
+        { taskNumber: 1, title: 'Task 1', status: 'todo', assigneeId: mockAssignee },
+        { taskNumber: 2, title: 'Task 2', status: 'in_progress', assigneeId: null },
+      ],
+      total: 2,
+    });
+
+    await command.onTasks(ctx);
+
+    expect(taskService.getTasksByGroup).toHaveBeenCalledWith(mockGroupId, {});
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('📝 Нужно сделать · 👤 @alice'),
+      expect.objectContaining({ parse_mode: 'Markdown' })
+    );
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('🔄 В работе · 👤 не назначена'),
+      expect.objectContaining({ parse_mode: 'Markdown' })
+    );
+  });
+
   it('should filter by status when /tasks todo', async () => {
     const ctx = createMockCtx({ message: { text: '/tasks todo' } });
 
@@ -93,6 +127,10 @@ describe('TasksCommand', () => {
     expect(taskService.getTasksByGroup).toHaveBeenCalledWith(
       mockGroupId,
       expect.objectContaining({ status: 'todo' })
+    );
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('📝 Нужно сделать · 👤 не назначена'),
+      expect.objectContaining({ parse_mode: 'Markdown' })
     );
   });
 
