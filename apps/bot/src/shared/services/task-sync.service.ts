@@ -42,10 +42,14 @@ export class TaskSyncService {
         const newMsg = await bot.telegram.sendMessage(fullTask.taskCardChatId, text, {
           parse_mode: 'Markdown',
           reply_markup: { inline_keyboard: buttons },
+          ...(fullTask.taskCardMessageThreadId ? { message_thread_id: fullTask.taskCardMessageThreadId } : {}),
         });
 
         await Task.findByIdAndUpdate(fullTask._id, {
-          $set: { taskCardMessageId: newMsg.message_id },
+          $set: {
+            taskCardMessageId: newMsg.message_id,
+            ...(newMsg.message_thread_id ? { taskCardMessageThreadId: newMsg.message_thread_id } : {}),
+          },
         });
       }
     } catch (error) {
@@ -64,7 +68,10 @@ export class TaskSyncService {
       const name = changedBy?.username ? `@${changedBy.username}` : changedBy?.firstName || 'Someone';
 
       const msg = `📝 ${name} ${action} *#${task.taskNumber}* — ${task.title} (via app)`;
-      await bot.telegram.sendMessage(task.taskCardChatId, msg, { parse_mode: 'Markdown' });
+      await bot.telegram.sendMessage(task.taskCardChatId, msg, {
+        parse_mode: 'Markdown',
+        ...(task.taskCardMessageThreadId ? { message_thread_id: task.taskCardMessageThreadId } : {}),
+      });
     } catch (error) {
       logger.error(`Status notification error: ${error}`);
     }

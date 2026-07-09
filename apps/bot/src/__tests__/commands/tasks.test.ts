@@ -124,6 +124,92 @@ describe('TasksCommand', () => {
     );
   });
 
+  it('should link to a task card even when /tasks is called from another topic', async () => {
+    const ctx = createMockCtx({
+      message: {
+        text: '/tasks',
+        is_topic_message: true,
+        message_thread_id: 20,
+      },
+    });
+
+    (taskService.getTaskStats as jest.Mock).mockResolvedValue({ todo: 1, in_progress: 0, done: 0 });
+    (taskService.getTasksByGroup as jest.Mock).mockResolvedValue({
+      tasks: [
+        {
+          taskNumber: 21,
+          title: 'Topic task',
+          status: 'todo',
+          assigneeId: null,
+          taskCardChatId: -100123,
+          taskCardMessageId: 654,
+          taskCardMessageThreadId: 10,
+        },
+      ],
+      total: 1,
+    });
+
+    await command.onTasks(ctx);
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('[\\#21](https://t.me/c/123/654)'),
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
+    );
+  });
+
+  it('should render plain task numbers for basic groups without broken links', async () => {
+    const ctx = createMockCtx({
+      chat: { id: -5286014997, type: 'group', title: 'Basic Group' },
+    });
+
+    (groupService.findOrCreateGroup as jest.Mock).mockResolvedValue({
+      ...mockGroup,
+      telegramGroupId: -5286014997,
+    });
+    (taskService.getTaskStats as jest.Mock).mockResolvedValue({ todo: 1, in_progress: 0, done: 0 });
+    (taskService.getTasksByGroup as jest.Mock).mockResolvedValue({
+      tasks: [
+        {
+          taskNumber: 22,
+          title: 'Basic group task',
+          status: 'todo',
+          assigneeId: null,
+          taskCardChatId: -5286014997,
+          taskCardMessageId: 111,
+        },
+      ],
+      total: 1,
+    });
+
+    await command.onTasks(ctx);
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.not.stringContaining('https://t.me/c/'),
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
+    );
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('*\\#22*'),
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
+    );
+  });
+
+  it('should render plain task numbers for older tasks without stored card messages', async () => {
+    const ctx = createMockCtx();
+
+    (taskService.getTaskStats as jest.Mock).mockResolvedValue({ todo: 1, in_progress: 0, done: 0 });
+    (taskService.getTasksByGroup as jest.Mock).mockResolvedValue({
+      tasks: [{ taskNumber: 23, title: 'Old task', status: 'todo', assigneeId: null }],
+      total: 1,
+    });
+
+    await command.onTasks(ctx);
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining('*\\#23*'),
+      expect.objectContaining({ parse_mode: 'MarkdownV2' })
+    );
+  });
+
   it('should filter by status when /tasks todo', async () => {
     const ctx = createMockCtx({ message: { text: '/tasks todo' } });
 

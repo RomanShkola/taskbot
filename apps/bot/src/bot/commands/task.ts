@@ -188,10 +188,15 @@ export class TaskCommand {
       const cardMessage = await sendTaskCard(ctx, cardText, buttons, attachments);
 
       // Store task card message ID for later updates
-      await taskService.updateTask(task._id, {
+      const taskCardUpdate: Record<string, unknown> = {
         taskCardMessageId: cardMessage.message_id,
         taskCardChatId: chatId,
-      });
+      };
+      const messageThreadId = getMessageThreadId(cardMessage) ?? getMessageThreadId(message);
+      if (messageThreadId) {
+        taskCardUpdate.taskCardMessageThreadId = messageThreadId;
+      }
+      await taskService.updateTask(task._id, taskCardUpdate);
 
       // Notify assignee if assigned
       if (assigneeId && assigneeUser) {
@@ -330,6 +335,15 @@ function buildMediaAttachment(type: ITaskAttachment['type'], media: Record<strin
     duration: media.duration,
     thumbnailFileId: media.thumbnail?.file_id || media.thumb?.file_id,
   };
+}
+
+function getMessageThreadId(message: unknown): number | undefined {
+  if (!message || typeof message !== 'object' || !('message_thread_id' in message)) {
+    return undefined;
+  }
+
+  const messageThreadId = (message as { message_thread_id?: unknown }).message_thread_id;
+  return typeof messageThreadId === 'number' ? messageThreadId : undefined;
 }
 
 function mergeAttachments(existing: ITaskAttachment[], incoming: ITaskAttachment[]): ITaskAttachment[] {

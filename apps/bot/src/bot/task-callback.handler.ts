@@ -30,7 +30,8 @@ export async function handleTaskCallback(ctx: BotContext) {
   const [, action, storageKey] = parts;
 
   try {
-    const cbData = await callbackDataStorageService.getCallbackData<TaskCallbackData>(ctx, storageKey, 'task_cb');
+    const cbData = await getTaskCallbackData(ctx, action, storageKey);
+    if (!cbData) return;
 
     const task = await taskService.getTaskById(cbData.taskId);
     if (!task) {
@@ -61,6 +62,10 @@ export async function handleTaskCallback(ctx: BotContext) {
         await handleShowAssignPicker(ctx, task);
         break;
       case 'assign_to':
+        if (!cbData.assigneeUserId) {
+          await ctx.answerCbQuery('Выбор исполнителя устарел. Нажмите «Назначить» еще раз.', { show_alert: true });
+          return;
+        }
         await handleAssignTo(ctx, task, fromUser, String(cbData.assigneeUserId));
         break;
       case 'unassign':
@@ -79,6 +84,26 @@ export async function handleTaskCallback(ctx: BotContext) {
     logger.error(`Task callback error: ${error}`);
     await ctx.answerCbQuery('Что-то пошло не так. Попробуйте еще раз.');
   }
+}
+
+async function getTaskCallbackData(
+  ctx: BotContext,
+  action: string,
+  storageKey: string,
+): Promise<TaskCallbackData | null> {
+  const storedData = await callbackDataStorageService.getCallbackDataOrNull<TaskCallbackData>(storageKey, 'task_cb');
+  if (storedData) return storedData;
+
+  const task = await getTaskFromCallbackMessage(ctx);
+  if (!task) {
+    await ctx.answerCbQuery('Кнопка устарела. Откройте задачу заново.', { show_alert: true });
+    return null;
+  }
+
+  return {
+    taskId: task._id.toString(),
+    action,
+  };
 }
 
 async function handleStatusChange(ctx: BotContext, task: ITask, newStatus: string, user: IUser) {
@@ -271,20 +296,50 @@ async function updateTaskCardMessage(ctx: BotContext, task: ITask) {
 
     const text = formatTaskCard(task, creator, assignee);
     const buttons = await buildTaskButtons(task);
-
-    if (hasCaptionCardAttachment(task)) {
-      await ctx.editMessageCaption(text, {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: buttons },
-      });
-    } else {
-      await ctx.editMessageText(text, {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: buttons },
-      });
-    }
+    await editTaskCardMessage(ctx, task, text, buttons);
   } catch (error) {
     logger.error(`Failed to update task card message: ${error}`);
+  }
+}
+
+async function editTaskCardMessage(
+  ctx: BotContext,
+  task: ITask,
+  text: string,
+  buttons: InlineKeyboardButton[][],
+) {
+  const preferCaption = callbackMessageHasCaption(ctx) || (!callbackMessageHasText(ctx) && hasCaptionCardAttachment(task));
+  const editCaption = () =>
+    ctx.editMessageCaption(text, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: buttons },
+    });
+  const editText = () =>
+    ctx.editMessageText(text, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: buttons },
+    });
+
+  try {
+    if (preferCaption) {
+      await editCaption();
+    } else {
+      await editText();
+    }
+  } catch (error) {
+    if (isTelegramMessageNotModifiedError(error)) return;
+
+    if (!preferCaption && isTelegramNoTextToEditError(error)) {
+      await editCaption();
+      return;
+    }
+
+    if (preferCaption && isTelegramNoCaptionToEditError(error) && callbackMessageHasText(ctx)) {
+      await editText();
+      return;
+    }
+
+    throw error;
   }
 }
 
@@ -294,4 +349,50 @@ function hasCaptionCardAttachment(task: ITask): boolean {
       ['photo', 'video', 'animation', 'document', 'audio', 'voice'].includes(attachment.type)
     )
   );
+}
+
+async function getTaskFromCallbackMessage(ctx: BotContext): Promise<ITask | null> {
+  const ids = getCallbackMessageIds(ctx);
+  if (!ids) return null;
+  return taskService.getTaskByCardMessage(ids.chatId, ids.messageId);
+}
+
+function getCallbackMessageIds(ctx: BotContext): { chatId: number; messageId: number } | null {
+  const message = ctx.callbackQuery?.message;
+  if (!message || typeof message !== 'object' || !('message_id' in message) || !('chat' in message)) {
+    return null;
+  }
+
+  const chat = (message as { chat?: { id?: unknown } }).chat;
+  const chatId = chat?.id;
+  const messageId = (message as { message_id?: unknown }).message_id;
+
+  if (typeof chatId !== 'number' || typeof messageId !== 'number') return null;
+  return { chatId, messageId };
+}
+
+function callbackMessageHasCaption(ctx: BotContext): boolean {
+  const message = ctx.callbackQuery?.message;
+  return Boolean(message && typeof message === 'object' && 'caption' in message);
+}
+
+function callbackMessageHasText(ctx: BotContext): boolean {
+  const message = ctx.callbackQuery?.message;
+  return Boolean(message && typeof message === 'object' && 'text' in message);
+}
+
+function isTelegramNoTextToEditError(error: unknown): boolean {
+  return getErrorMessage(error).includes('there is no text in the message to edit');
+}
+
+function isTelegramNoCaptionToEditError(error: unknown): boolean {
+  return getErrorMessage(error).includes('there is no caption in the message to edit');
+}
+
+function isTelegramMessageNotModifiedError(error: unknown): boolean {
+  return getErrorMessage(error).includes('message is not modified');
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

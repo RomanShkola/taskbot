@@ -2,6 +2,14 @@ import { BotContext } from 'src/bot/interface/context';
 import { redisService } from 'src/shared/services/redis.service';
 
 export class CallbackDataStorageService {
+  private async notifyExpiredCallback(ctx: BotContext) {
+    try {
+      await ctx.answerCbQuery('Кнопка устарела. Попробуйте открыть меню еще раз.', { show_alert: true });
+    } catch {
+      // Callback may already be answered or unavailable.
+    }
+  }
+
   async hSetCallbackData<T>(address: string, prefix: string, field: string, data: T[]) {
     const redisKey = `${prefix}:${address}`;
     await Promise.all(
@@ -16,7 +24,7 @@ export class CallbackDataStorageService {
     const redisKey = `${prefix}:${address}`;
     const redisValue = await redisService.hGet(redisKey, field);
     if (!redisValue) {
-      await ctx.editMessageText('Something went wrong. Please /start again to get started.');
+      await this.notifyExpiredCallback(ctx);
       throw new Error('CallbackData is expired!');
     }
     return JSON.parse(redisValue) as T;
@@ -31,10 +39,16 @@ export class CallbackDataStorageService {
     const redisKey = `${key}:${address}`;
     const redisValue = await redisService.get(redisKey);
     if (!redisValue) {
-      await ctx.editMessageText('Something went wrong. Please /start again to get started.');
+      await this.notifyExpiredCallback(ctx);
       throw new Error('CallbackData is expired!');
     }
     return JSON.parse(redisValue) as T;
+  }
+
+  async getCallbackDataOrNull<T>(address: string, key: string) {
+    const redisKey = `${key}:${address}`;
+    const redisValue = await redisService.get(redisKey);
+    return redisValue ? (JSON.parse(redisValue) as T) : null;
   }
 
   async delCallbackData(address: string, prefix: string) {

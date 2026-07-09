@@ -47,6 +47,7 @@ export interface ITask extends Document {
   reminderSent?: boolean;
   taskCardMessageId?: number;
   taskCardChatId?: number;
+  taskCardMessageThreadId?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -148,6 +149,10 @@ const TaskSchema: Schema = new Schema(
       default: null,
     },
     taskCardChatId: {
+      type: Number,
+      default: null,
+    },
+    taskCardMessageThreadId: {
       type: Number,
       default: null,
     },

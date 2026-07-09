@@ -334,4 +334,46 @@ describe('TaskCommand', () => {
       })
     );
   });
+
+  it('should store card message thread ID when the task is created in a topic', async () => {
+    const ctx = createMockCtx({
+      message: {
+        text: '/task Topic task',
+        is_topic_message: true,
+        message_thread_id: 73,
+      },
+      reply: jest.fn().mockResolvedValue({ message_id: 999, message_thread_id: 73 }),
+    });
+
+    await command.onTask(ctx);
+
+    expect(taskService.updateTask).toHaveBeenCalledWith(
+      mockTaskId,
+      expect.objectContaining({
+        taskCardMessageId: 999,
+        taskCardChatId: -100123,
+        taskCardMessageThreadId: 73,
+      })
+    );
+  });
+
+  it('should fall back to the incoming topic ID if Telegram omits it from the card response', async () => {
+    const ctx = createMockCtx({
+      message: {
+        text: '/task Topic task',
+        is_topic_message: true,
+        message_thread_id: 88,
+      },
+      reply: jest.fn().mockResolvedValue({ message_id: 999 }),
+    });
+
+    await command.onTask(ctx);
+
+    expect(taskService.updateTask).toHaveBeenCalledWith(
+      mockTaskId,
+      expect.objectContaining({
+        taskCardMessageThreadId: 88,
+      })
+    );
+  });
 });
